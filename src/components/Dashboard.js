@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { format, startOfWeek, endOfWeek } from 'date-fns'
 import EveningReflection from './EveningReflection'
-import { canPrayerBeChecked, getPrayerTimes } from '../utils/prayerTimes'
+import { canPrayerBeChecked, getPrayerTimes } from '../utils/PrayerTimes'
 
 export default function Dashboard({ session }) {
   const navigate = useNavigate()
