@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
-import { format, startOfWeek, endOfWeek, eachDayOfInterval } from 'date-fns'
+import { format, startOfWeek, endOfWeek } from 'date-fns'
+import EveningReflection from './EveningReflection'
 
 export default function Dashboard({ session }) {
   const navigate = useNavigate()
@@ -49,6 +50,7 @@ export default function Dashboard({ session }) {
 
   useEffect(() => {
     loadDashboardData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   async function loadDashboardData() {
@@ -288,9 +290,9 @@ export default function Dashboard({ session }) {
           </div>
         )}
 
-        {/* Complete All Button */}
+        {/* Complete All Button - FIXED: Now navigates to /daily */}
         <button
-          onClick={() => navigate('/')}
+          onClick={() => navigate('/daily')}
           className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition mb-4"
         >
           Complete All → Open Daily Log
@@ -379,7 +381,14 @@ export default function Dashboard({ session }) {
                 Review your week, plan ahead, and make music.
               </p>
               <button
-                onClick={() => document.getElementById('reflection-modal').showModal()}
+                onClick={() => {
+                  const modal = document.getElementById('reflection-modal')
+                  if (modal) {
+                    modal.showModal()
+                  } else {
+                    console.error('Modal not found')
+                  }
+                }}
                 className="w-full bg-purple-600 text-white py-2 rounded text-sm hover:bg-purple-700 transition"
               >
                 Begin Weekly Reflection
@@ -486,6 +495,27 @@ export default function Dashboard({ session }) {
         </div>
       )}
 
+      {/* Reflection Modal - FIXED: Now properly rendered */}
+      {isSunday && todayLog && (
+        <dialog 
+          id="reflection-modal" 
+          className="p-0 bg-transparent rounded-lg"
+          onClose={() => {
+            document.getElementById('reflection-modal')?.close()
+            loadDashboardData() // Refresh after reflection
+          }}
+        >
+          <EveningReflection 
+            todayLog={todayLog}
+            setTodayLog={setTodayLog}
+            onClose={() => {
+              document.getElementById('reflection-modal')?.close()
+              loadDashboardData()
+            }}
+          />
+        </dialog>
+      )}
+
       {/* Needs Attention */}
       {(projects.int_ac.some(p => {
         const lastWorked = p.last_worked_on ? new Date(p.last_worked_on) : new Date(0)
@@ -535,16 +565,13 @@ export default function Dashboard({ session }) {
         </div>
       )}
 
-      {/* Reflection Modal (for Sunday) */}
-      <dialog id="reflection-modal" className="p-0 bg-transparent">
-        {/* We'll reuse the EveningReflection component here */}
-        {/* You can import and use it, or create a weekly version */}
-      </dialog>
-
       {/* Bottom Menu */}
       <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-card border-t border-gray-200 dark:border-dark-border p-2">
         <div className="max-w-md mx-auto flex justify-around">
           <button onClick={() => navigate('/')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
+            🏠 Home
+          </button>
+          <button onClick={() => navigate('/daily')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
             📅 Daily
           </button>
           <button onClick={() => navigate('/int-pa')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
