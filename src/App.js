@@ -1,21 +1,22 @@
 import React, { useEffect, useState } from 'react'
-import { BrowserRouter, Routes, Route, Link, useNavigate, useParams } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Link, useNavigate, useParams, useLocation } from 'react-router-dom'
 import { supabase } from './supabaseClient'
 import { ThemeProvider, useTheme } from './context/ThemeContext'
 import ThemeToggle from './components/ThemeToggle'
+import Dashboard from './components/Dashboard'
 import PrayerTracker from './components/PrayerTracker'
 import IntPAProjects from './components/IntPAProjects'
 import IntPAProjectDetail from './components/IntPAProjectDetail'
 import IntACProjects from './components/IntACProjects'
 import IntACProjectDetail from './components/IntACProjectDetail'
-import TruthAC from './components/TRUTHAC'
+import TruthAC from './components/TruthAC'
 import ArtGallery from './components/ArtGallery'
 import SportsLog from './components/SportsLog'
-import Dashboard from './components/Dashboard'
 
 function AppContent() {
   const [session, setSession] = useState(null)
   const { isDark } = useTheme()
+  const location = useLocation()
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -33,55 +34,32 @@ function AppContent() {
     return <Auth />
   }
 
-  return (
-    <div className="min-h-screen bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text">
-      <div className="max-w-md mx-auto p-4">
-        {/* Header with Navigation */}
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            Crown System
-          </h1>
-          <div className="flex items-center gap-3">
-            <ThemeToggle />
-            <button 
-              onClick={() => supabase.auth.signOut()}
-              className="text-sm text-gray-600 dark:text-dark-text-muted hover:text-gray-900 dark:hover:text-white"
-            >
-              Sign Out
-            </button>
-          </div>
-        </div>
+  // Define all navigation items
+  const navItems = [
+    { path: '/', name: 'Home', icon: '🏠' },
+    { path: '/daily', name: 'Daily', icon: '📅' },
+    { path: '/int-pa', name: 'Projects', icon: '🔬' },
+    { path: '/int-ac', name: 'Solvix', icon: '🚀' },
+    { path: '/truth-ac', name: 'Library', icon: '📚' },
+    { path: '/art', name: 'Art', icon: '🎨' },
+    { path: '/sports', name: 'Sports', icon: '⚽' }
+  ]
 
-        {/* Navigation Tabs */}
-        <div className="flex gap-1 mb-6 overflow-x-auto pb-2 scrollbar-hide">
-          {[
-            { to: "/", label: "Home", emoji: "🏠" },
-            { to: "/daily", label: "Daily", emoji: "📅" },        
-            { to: "/int-pa", label: "INT_PA", emoji: "🔬" },
-            { to: "/int-ac", label: "Solvix", emoji: "🚀" },
-            { to: "/truth-ac", label: "Truth", emoji: "📚" },
-            { to: "/art", label: "Art", emoji: "🎨" },
-            { to: "/sports", label: "Sports", emoji: "⚽" }
-          ].map(tab => (
-            <Link
-              key={tab.to}
-              to={tab.to}
-              className="px-4 py-2 text-sm font-medium rounded-lg whitespace-nowrap
-                bg-gray-100 dark:bg-dark-card 
-                text-gray-700 dark:text-dark-text-muted
-                hover:bg-gray-200 dark:hover:bg-dark-border
-                transition-all duration-200"
-            >
-              <span className="mr-1">{tab.emoji}</span>
-              {tab.label}
-            </Link>
-          ))}
+  // Filter out current page
+  const visibleNavItems = navItems.filter(item => item.path !== location.pathname)
+
+  return (
+    <div className="min-h-screen bg-white dark:bg-dark-bg text-gray-900 dark:text-dark-text pb-20">
+      <div className="max-w-md mx-auto p-4">
+        {/* Only ThemeToggle in top bar */}
+        <div className="flex justify-end items-center mb-6">
+          <ThemeToggle />
         </div>
 
         {/* Routes */}
         <Routes>
-         <Route path="/" element={<Dashboard session={session} />} />
-         <Route path="/daily" element={<PrayerTracker session={session} />} />
+          <Route path="/" element={<Dashboard session={session} />} />
+          <Route path="/daily" element={<PrayerTracker session={session} />} />
           <Route path="/int-pa" element={<IntPAProjects session={session} />} />
           <Route path="/int-pa/:projectId" element={<IntPAProjectDetailWrapper session={session} />} />
           <Route path="/int-ac" element={<IntACProjects session={session} />} />
@@ -91,6 +69,22 @@ function AppContent() {
           <Route path="/sports" element={<SportsLog session={session} />} />
         </Routes>
       </div>
+
+      {/* Bottom Navigation - Persistent */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-card border-t border-gray-200 dark:border-dark-border py-2">
+        <div className="max-w-md mx-auto flex justify-around items-center">
+          {visibleNavItems.map(item => (
+            <Link
+              key={item.path}
+              to={item.path}
+              className="flex flex-col items-center p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400 transition"
+            >
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-xs mt-1">{item.name}</span>
+            </Link>
+          ))}
+        </div>
+      </nav>
     </div>
   )
 }
