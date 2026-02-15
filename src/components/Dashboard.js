@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { supabase } from '../supabaseClient'
 import { format, startOfWeek, endOfWeek } from 'date-fns'
 import EveningReflection from './EveningReflection'
+import { canPrayerBeChecked, getPrayerTimes } from '../utils/prayerTimes'
 
 export default function Dashboard({ session }) {
   const navigate = useNavigate()
@@ -14,7 +15,7 @@ export default function Dashboard({ session }) {
   })
   const [unfinishedArticles, setUnfinishedArticles] = useState(0)
   const [weeklyStats, setWeeklyStats] = useState(null)
-  const [showWeeklyReview, setShowWeeklyReview] = useState(false)
+  const [prayerTimes, setPrayerTimes] = useState({})
 
   const today = new Date()
   const dayOfWeek = today.getDay() // 0 = Sunday, 1 = Monday, etc.
@@ -50,6 +51,11 @@ export default function Dashboard({ session }) {
 
   useEffect(() => {
     loadDashboardData()
+    
+    // Get prayer times for display
+    const times = getPrayerTimes(new Date())
+    setPrayerTimes(times)
+    
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -210,6 +216,44 @@ export default function Dashboard({ session }) {
   async function toggleAbsolute(field) {
     if (!todayLog) return
 
+    // Check time restrictions for prayers
+    if (field.startsWith('prayer_')) {
+      const prayerId = field.replace('prayer_', '')
+      if (!canPrayerBeChecked(prayerId) && !todayLog.travel_mode_active) {
+        const times = getPrayerTimes(new Date())
+        const prayerTime = times[prayerId]
+        alert(`You can only check ${prayerId} between ${prayerTime.toLocaleTimeString()} and 2 hours after`)
+        return
+      }
+    }
+
+    // Check morning hygiene (available Fajr - 12pm)
+    if (field === 'hygiene_morning') {
+      const now = new Date()
+      const prayerTimes = getPrayerTimes(now)
+      const morningStart = prayerTimes.fajr
+      const morningEnd = new Date(now)
+      morningEnd.setHours(11, 59, 0, 0)
+      
+      if ((now < morningStart || now > morningEnd) && !todayLog.travel_mode_active) {
+        alert(`Morning hygiene can only be checked between ${morningStart.toLocaleTimeString()} and 12:00 PM`)
+        return
+      }
+    }
+
+    // Check evening hygiene (available Maghrib - 2 hours after Isha)
+    if (field === 'hygiene_evening') {
+      const now = new Date()
+      const prayerTimes = getPrayerTimes(now)
+      const eveningStart = prayerTimes.maghrib
+      const eveningEnd = new Date(prayerTimes.isha.getTime() + (2 * 60 * 60 * 1000))
+      
+      if ((now < eveningStart || now > eveningEnd) && !todayLog.travel_mode_active) {
+        alert(`Evening hygiene can only be checked between ${eveningStart.toLocaleTimeString()} and ${eveningEnd.toLocaleTimeString()}`)
+        return
+      }
+    }
+
     const newValue = !todayLog[field]
     const timeField = field.includes('prayer') ? `${field}_time` : null
     
@@ -249,7 +293,7 @@ export default function Dashboard({ session }) {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 pb-6">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-dark-text">
@@ -278,7 +322,14 @@ export default function Dashboard({ session }) {
                   className="flex items-center gap-2 p-2 bg-white dark:bg-dark-bg rounded-lg border border-gray-200 dark:border-dark-border hover:bg-gray-50 dark:hover:bg-dark-border transition text-left"
                 >
                   <span className="text-xl">{item.icon}</span>
-                  <span className="text-sm text-gray-900 dark:text-dark-text flex-1">{item.name}</span>
+                  <div className="flex-1">
+                    <span className="text-sm text-gray-900 dark:text-dark-text block">{item.name}</span>
+                    {item.field.startsWith('prayer_') && prayerTimes[item.field.replace('prayer_', '')] && (
+                      <span className="text-xs text-gray-500 dark:text-dark-text-muted">
+                        {prayerTimes[item.field.replace('prayer_', '')].toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    )}
+                  </div>
                   <span className="text-gray-400 dark:text-gray-600">□</span>
                 </button>
               ))}
@@ -290,7 +341,7 @@ export default function Dashboard({ session }) {
           </div>
         )}
 
-        {/* Complete All Button - FIXED: Now navigates to /daily */}
+        {/* Complete All Button */}
         <button
           onClick={() => navigate('/daily')}
           className="w-full bg-blue-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-blue-700 transition mb-4"
@@ -307,7 +358,7 @@ export default function Dashboard({ session }) {
               🎯 FOCUS: {todaySchedule.main}
             </h3>
             
-            {/* Show appropriate project based on day */}
+            {/* INT_PA Focus */}
             {todaySchedule.main === 'INT_PA' && projects.int_pa[0] && (
               <div className="bg-white dark:bg-dark-bg p-3 rounded-lg border border-gray-200 dark:border-dark-border mb-3">
                 <div className="font-medium text-gray-900 dark:text-dark-text">{projects.int_pa[0].name}</div>
@@ -329,6 +380,7 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
+            {/* INT_AC Focus */}
             {todaySchedule.main === 'INT_AC' && projects.int_ac[0] && (
               <div className="bg-white dark:bg-dark-bg p-3 rounded-lg border border-gray-200 dark:border-dark-border mb-3">
                 <div className="font-medium text-gray-900 dark:text-dark-text">{projects.int_ac[0].name}</div>
@@ -350,6 +402,7 @@ export default function Dashboard({ session }) {
               </div>
             )}
 
+            {/* TRUTH_AC Focus */}
             {todaySchedule.main === 'TRUTH_AC' && (
               <div className="bg-white dark:bg-dark-bg p-3 rounded-lg border border-gray-200 dark:border-dark-border mb-3">
                 <div className="font-medium text-gray-900 dark:text-dark-text">Domain Exploration</div>
@@ -385,8 +438,6 @@ export default function Dashboard({ session }) {
                   const modal = document.getElementById('reflection-modal')
                   if (modal) {
                     modal.showModal()
-                  } else {
-                    console.error('Modal not found')
                   }
                 }}
                 className="w-full bg-purple-600 text-white py-2 rounded text-sm hover:bg-purple-700 transition"
@@ -495,14 +546,14 @@ export default function Dashboard({ session }) {
         </div>
       )}
 
-      {/* Reflection Modal - FIXED: Now properly rendered */}
+      {/* Reflection Modal */}
       {isSunday && todayLog && (
         <dialog 
           id="reflection-modal" 
           className="p-0 bg-transparent rounded-lg"
           onClose={() => {
             document.getElementById('reflection-modal')?.close()
-            loadDashboardData() // Refresh after reflection
+            loadDashboardData()
           }}
         >
           <EveningReflection 
@@ -564,33 +615,6 @@ export default function Dashboard({ session }) {
           )}
         </div>
       )}
-
-      {/* Bottom Menu */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-dark-card border-t border-gray-200 dark:border-dark-border p-2">
-        <div className="max-w-md mx-auto flex justify-around">
-          <button onClick={() => navigate('/')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
-            🏠 Home
-          </button>
-          <button onClick={() => navigate('/daily')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
-            📅 Daily
-          </button>
-          <button onClick={() => navigate('/int-pa')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
-            🔬 Projects
-          </button>
-          <button onClick={() => navigate('/truth-ac')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
-            📚 Library
-          </button>
-          <button onClick={() => navigate('/art')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
-            🎨 Art
-          </button>
-          <button onClick={() => navigate('/sports')} className="p-2 text-gray-600 dark:text-dark-text-muted hover:text-blue-600 dark:hover:text-blue-400">
-            ⚽ Sports
-          </button>
-        </div>
-      </div>
-
-      {/* Spacer for bottom menu */}
-      <div className="h-16" />
     </div>
   )
 }
