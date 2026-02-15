@@ -9,7 +9,7 @@ import IntPAProjects from './components/IntPAProjects'
 import IntPAProjectDetail from './components/IntPAProjectDetail'
 import IntACProjects from './components/IntACProjects'
 import IntACProjectDetail from './components/IntACProjectDetail'
-import TruthAC from './components/TruthAC'
+import TruthAC from './components/TRUTHAC'
 import ArtGallery from './components/ArtGallery'
 import SportsLog from './components/SportsLog'
 
